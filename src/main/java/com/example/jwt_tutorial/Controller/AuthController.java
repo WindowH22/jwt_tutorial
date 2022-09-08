@@ -1,0 +1,55 @@
+package com.example.jwt_tutorial.Controller;
+
+import com.example.jwt_tutorial.dto.LoginDto;
+import com.example.jwt_tutorial.dto.TokenDto;
+import com.example.jwt_tutorial.jwt.JwtFilter;
+import com.example.jwt_tutorial.jwt.TokenProvider;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.validation.Valid;
+
+@RestController
+@RequestMapping("/api")
+public class AuthController {
+    private final TokenProvider tokenProvider;
+    private final AuthenticationManagerBuilder authenticationManagerBuilder;
+
+    public AuthController(TokenProvider tokenProvider, AuthenticationManagerBuilder authenticationManagerBuilder) {
+        this.tokenProvider = tokenProvider;
+        this.authenticationManagerBuilder = authenticationManagerBuilder;
+    }
+
+    @PostMapping("/authenticate")
+    public ResponseEntity<TokenDto> authorize(@Valid @RequestBody LoginDto loginDto) {
+
+        // UsernamePasswordAuthenticationToken 생성
+        UsernamePasswordAuthenticationToken authenticationToken =
+                new UsernamePasswordAuthenticationToken(loginDto.getUsername(), loginDto.getPassword());
+
+        // authenticate()메서드가 실행될 때 loadUserByUsername 메서드가 실행됩니다.
+        Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+
+        // SecurityContextHolder authentication을 저장
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // createtoken 메서드를 이용해서 jwt 토큰생성
+        String jwt = tokenProvider.createToken(authentication);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        // 헤더에 jwt 담아죽기
+        httpHeaders.add(JwtFilter.AUTHORIZATION_HEADER, "Bearer " + jwt);
+
+        // body에 jwt 담아주기
+        return new ResponseEntity<>(new TokenDto(jwt), httpHeaders, HttpStatus.OK);
+    }
+}
